@@ -54,16 +54,43 @@ for await (const doc of map(pageInfo, ["dump1.xml", "dump2.xml.gz"], 4)) {
 }
 ```
 
+### `mapWorker()`
+
+Like `map()`, but distributes the work across real worker threads
+(`node:worker_threads`), so several dumps parse in parallel on separate
+cores. Because functions cannot cross a thread boundary, the processor is
+given as a module URL (or absolute path) exporting an async generator, and
+the paths must be real files:
+
+```ts
+import { mapWorker } from "node-mwxml";
+
+// processor.mjs:
+// export default async function* (dump, path) { ... }
+const processor = new URL("./processor.mjs", import.meta.url);
+
+for await (const doc of mapWorker(processor, ["dump1.xml", "dump2.xml.gz"], 4)) {
+  console.log(doc);
+}
+```
+
+Like `map()`, results are yielded in the order the paths were given and
+errors raised by a processor surface when its path's results are reached.
+Workers are terminated if the iteration is abandoned early.
+
 ### CLI
 
 The package ships a `node-mwxml` binary mirroring the Python utilities:
 
 ```
-node-mwxml dump2revdocs <dump.xml>... [--output=<dir>] [--compress=gz|none] [--verbose]
+node-mwxml dump2revdocs <dump.xml>... [--output=<dir>] [--threads=<num>] [--compress=gz|none] [--verbose]
 node-mwxml inflate <flat-rev-docs.jsonl>...
 node-mwxml normalize <rev-docs.jsonl>...
 node-mwxml validate <rev-docs.jsonl>... --schema=<schema.json>
 ```
+
+With `--threads=<num>` and an `--output` directory, `dump2revdocs` processes
+the input files across that many real worker threads.
 
 ## API mapping
 
@@ -106,8 +133,10 @@ node-mwxml validate <rev-docs.jsonl>... --schema=<schema.json>
 - **Divergences from Python:**
   - bzip2 *compression* of CLI output is not supported (bzip2 *reading* is,
     via the optional `unbzip2-stream` dependency); use `--compress=gz`.
-  - The CLI processes input files sequentially in the order given;
-    `--threads` is accepted for compatibility but does not spawn workers.
+  - `dump2revdocs --threads=<num>` spawns real worker threads when writing
+    to an `--output` directory (Python streams merged ordered output to
+    stdout instead); with stdout, or fewer than two inputs, inputs are
+    processed sequentially in the order given.
   - Iterating a `Page`'s revisions part-way and then resuming (after the
     dump has moved on) yields the remaining revisions; in Python the
     generator is closed by garbage collection and yields nothing.

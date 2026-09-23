@@ -11,10 +11,10 @@ The port is complete and verified: the test suite is a 1:1 port of the Python su
 ## Layout
 
 - `src/elementIterator.ts` — `EventPointer` + `ElementIterator` over saxes (the streaming engine; pull-based, demand-driven)
-- `src/dump.ts` — `Dump` (+ `fromFile`/`fromPageXml`); `src/map.ts` — parallel `map()`
+- `src/dump.ts` — `Dump` (+ `fromFile`/`fromPageXml`); `src/map.ts` — parallel `map()`; `src/mapWorker.ts` — `mapWorker()` over real worker threads
 - `src/files.ts` — compression sniffing (gzip via `node:zlib`, bz2 via optional `unbzip2-stream`), `concat`, `writer`
 - `src/model/` — data model classes with their `fromElement` parsers and `toJSON`
-- `src/cli/` — `node-mwxml` bin: `dump2revdocs`, `inflate`, `normalize`, `validate`
+- `src/cli/` — `node-mwxml` bin: `dump2revdocs`, `inflate`, `normalize`, `validate`; `src/cli/worker.ts` is the `dump2revdocs --threads` worker entry, `src/cli/output.ts` the shared output helpers
 - `test/` — vitest suite (1:1 Python port + timestamp/compression tests), fixtures in `test/fixtures/`
 - `scripts/check-build.mjs` — validates the built `dist/` output
 
@@ -26,6 +26,7 @@ The port is complete and verified: the test suite is a 1:1 port of the Python su
 - **Async text**: Python's `.text` property drains the element, so it became `await element.text()`.
 - **Shared generators** (`Dump`, `Page`, `ElementIterator`): wrappers pull via explicit `next()` so breaking out of a `for await` leaves the underlying generator suspended and resumable (Python `next()` parity). Do not switch these to `yield*`.
 - **Dependencies**: keep them minimal. Runtime deps are `saxes` (SAX) and `ajv` (CLI `validate` only). Concurrency in `map()` uses the inline `Semaphore` in `src/map.ts` — p-limit was deliberately removed; do not reintroduce it (or any dep) for this. `unbzip2-stream` stays an optional dependency.
+- **Worker threads** (do not replace with a dependency): `mapWorker()` and the CLI's `dump2revdocs --threads` use `node:worker_threads`. Worker processors are modules (URL or absolute path) because functions cannot cross a thread boundary; the eval-string bootstrap in `src/mapWorker.ts` imports `Dump` from `libUrl` (default: the `dump.js` compiled next to `mapWorker.js`). CLI `--threads` requires `--output` and more than one input; otherwise it falls back to the sequential path. Both reuse `map()`'s `Channel` for ordered, error-surfacing results.
 
 ## Commands
 
@@ -38,4 +39,5 @@ The port is complete and verified: the test suite is a 1:1 port of the Python su
 
 - Tests must be compatible with both vitest and bun. Notably bun's `.rejects` requires an actual Promise — pass `(async () => { ... })()`, not a function.
 - `expect.unreachable()` works in both runners.
+- `test/mapWorker.test.ts` skips unless `dist/` is built: workers are plain Node/Bun threads without the runner's TypeScript transform, so they must import the compiled library. `npm run check-build` exercises the worker paths against the build.
 - Python behaviour questions should be settled against `./python-mwxml` (or `pip install mwxml` in a venv), not from memory.

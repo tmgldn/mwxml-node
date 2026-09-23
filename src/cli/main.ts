@@ -1,15 +1,14 @@
 #!/usr/bin/env node
-import { createReadStream, mkdirSync } from "node:fs";
-import { basename } from "node:path";
+import { createReadStream } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
-import type { Writable } from "node:stream";
+import { Worker } from "node:worker_threads";
 
 import { Dump } from "../dump.js";
-import { extractExtension, writer } from "../files.js";
 import type { Json } from "../json.js";
 import { dump2revdocs } from "./dump2revdocs.js";
 import { inflate } from "./inflate.js";
 import { normalize } from "./normalize.js";
+import { openOutput, writeAll } from "./output.js";
 import { loadSchema, validate } from "./validate.js";
 
 interface Arguments {
@@ -41,8 +40,10 @@ Subcommands:
 Options:
     -h|--help           Print this documentation
     <input-file>        The path to an input file [default: <stdin>]
-    --threads=<num>     Accepted for compatibility; inputs are processed
-                        sequentially in the order given
+    --threads=<num>     Process input files across <num> worker threads
+                        (requires --output and more than one input file;
+                        otherwise inputs are processed sequentially in the
+                        order given).
     --output=<path>     Write output to a directory with one output file per
                         input path.  [default: <stdout>]
     --compress=<type>   If set, output written to the output-dir will be
@@ -129,48 +130,85 @@ async function *readJsonLines(
   }
 }
 
-function openOutput(args: Arguments, input: string): Writable {
-  if (args.output === undefined) {
-    return process.stdout;
-  }
-  mkdirSync(args.output, { recursive: true });
-  const [filename] = extractExtension(basename(input));
-  const extension = args.compress === "gz" ? ".gz" : "";
-  const path = `${args.output}/${filename}${extension}`;
-  return writer(path);
-}
-
-async function writeAll(
-  docs: AsyncIterable<Json>,
-  output: Writable,
-): Promise<void> {
-  const write = (chunk: string) =>
-    new Promise<void>((resolve, reject) => {
-      output.write(chunk, (error) =>
-        error === null || error === undefined ? resolve() : reject(error),
-      );
-    });
-
-  for await (const doc of docs) {
-    await write(`${JSON.stringify(doc)}\n`);
-  }
-
-  if (output !== process.stdout) {
-    await new Promise<void>((resolve, reject) => {
-      output.end((error?: Error | null) =>
-        error ? reject(error) : resolve(),
-      );
-    });
-  }
-}
-
 async function runDump2revdocs(args: Arguments): Promise<void> {
+  if (args.threads !== undefined && args.threads > 1 &&
+      args.output !== undefined && args.inputs.length > 1) {
+    await runDump2revdocsThreaded(args);
+    return;
+  }
+
   const inputs: (string | NodeJS.ReadableStream)[] =
     args.inputs.length > 0 ? args.inputs : [process.stdin];
   for (const input of inputs) {
     const dump = await Dump.fromFile(input);
-    const output = openOutput(args, typeof input === "string" ? input : "<stdin>");
+    const output = openOutput(
+      args.output, args.compress,
+      typeof input === "string" ? input : "<stdin>",
+    );
     await writeAll(dump2revdocs(dump, args.verbose), output);
+  }
+}
+
+/**
+ * Runs `dump2revdocs` across worker threads: input paths are distributed
+ * round-robin over the workers and each worker writes the output files of
+ * its own paths.  Failures are reported for the earliest failing input
+ * first, matching the sequential mode's fail-fast behavior.
+ */
+async function runDump2revdocsThreaded(args: Arguments): Promise<void> {
+  const inputs = args.inputs;
+  const count = Math.min(args.threads as number, inputs.length);
+  const buckets: string[][] = Array.from({ length: count }, () => []);
+  inputs.forEach((input, index) => {
+    buckets[index % count].push(input);
+  });
+
+  const failures: { path: string; message: string }[] = [];
+  const workers = buckets
+    .filter((paths) => paths.length > 0)
+    .map((paths) => {
+      const worker = new Worker(new URL("./worker.js", import.meta.url), {
+        workerData: {
+          paths,
+          output: args.output,
+          compress: args.compress,
+          verbose: args.verbose,
+        },
+      });
+      worker.on("message", (message: {
+        type: "done" | "error";
+        path: string;
+        message?: string;
+      }) => {
+        if (message.type === "error") {
+          failures.push({
+            path: message.path,
+            message: message.message ?? "Unknown error.",
+          });
+        }
+      });
+      return worker;
+    });
+
+  await Promise.all(
+    workers.map(
+      (worker) =>
+        new Promise<void>((resolve, reject) => {
+          worker.on("exit", () => resolve());
+          worker.on("error", reject);
+        }),
+    ),
+  );
+
+  if (failures.length > 0) {
+    failures.sort(
+      (a, b) => inputs.indexOf(a.path) - inputs.indexOf(b.path),
+    );
+    throw new Error(
+      failures
+        .map(({ path, message }) => `${path}: ${message}`)
+        .join("\n"),
+    );
   }
 }
 
@@ -183,7 +221,10 @@ async function runJsonLines(
   const inputs: (string | NodeJS.ReadableStream)[] =
     args.inputs.length > 0 ? args.inputs : [process.stdin];
   for (const input of inputs) {
-    const output = openOutput(args, typeof input === "string" ? input : "<stdin>");
+    const output = openOutput(
+      args.output, args.compress,
+      typeof input === "string" ? input : "<stdin>",
+    );
     await writeAll(processDocs(readJsonLines(input)), output);
   }
 }

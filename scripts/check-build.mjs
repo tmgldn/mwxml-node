@@ -6,7 +6,8 @@
  * `npm run check-build` (before a release, after `build` and `test`).
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import assert from "node:assert";
@@ -18,6 +19,7 @@ const root = path.resolve(
 const distIndex = path.join(root, "dist", "index.js");
 const distCli = path.join(root, "dist", "cli", "main.js");
 const fixture = path.join(root, "test", "fixtures", "dump.xml");
+const fixtureBz2 = path.join(root, "test", "fixtures", "dump.xml.bz2");
 
 function checkBuildOutput() {
   if (!existsSync(distIndex) || !existsSync(distCli)) {
@@ -93,10 +95,83 @@ async function checkLibrary() {
   assert.strictEqual(revisionsBar[0].id, 3);
 }
 
+function checkCliThreads() {
+  const dir = mkdtempSync(path.join(tmpdir(), "mwxml-check-threads-"));
+  const run = (args) =>
+    spawnSync(distCli, [
+      "dump2revdocs",
+      `--output=${path.join(dir, args.output)}`,
+      fixture,
+      fixtureBz2,
+      ...args.extra,
+    ], { encoding: "utf8" });
+
+  const sequential = run({ output: "seq", extra: [] });
+  assert.strictEqual(
+    sequential.status, 0,
+    `sequential CLI exited with an error:\n${sequential.stderr}`,
+  );
+
+  const threaded = run({ output: "par", extra: ["--threads=2"] });
+  assert.strictEqual(
+    threaded.status, 0,
+    `threaded CLI exited with an error:\n${threaded.stderr}`,
+  );
+
+  // The fixtures' output basenames are "dump" and "dump.xml".
+  for (const name of ["dump", "dump.xml"]) {
+    assert.strictEqual(
+      readFileSync(path.join(dir, "par", name)).toString(),
+      readFileSync(path.join(dir, "seq", name)).toString(),
+      `threaded output differs from sequential output for ${name}`,
+    );
+  }
+}
+
+async function checkMapWorker() {
+  const mw = await import(pathToFileURL(distIndex).href);
+
+  const dir = mkdtempSync(path.join(tmpdir(), "mwxml-check-worker-"));
+  const processor = path.join(dir, "processor.mjs");
+  writeFileSync(
+    processor,
+    [
+      "export default async function *process(dump, path) {",
+      "  for await (const page of dump) {",
+      "    let revisions = 0;",
+      "    for await (const revision of page) {",
+      "      revisions += 1;",
+      "    }",
+      "    yield { path, revisions };",
+      "  }",
+      "}",
+    ].join("\n"),
+  );
+
+  const docs = [];
+  for await (const doc of mw.mapWorker(processor, [fixture, fixtureBz2], 2)) {
+    docs.push(doc);
+  }
+
+  // Results arrive in path order: both fixture dumps contain one page with
+  // two revisions and one page with a single revision.
+  assert.deepStrictEqual(
+    docs.map((doc) => [doc.path, doc.revisions]),
+    [
+      [fixture, 2],
+      [fixture, 1],
+      [fixtureBz2, 2],
+      [fixtureBz2, 1],
+    ],
+  );
+}
+
 try {
   checkBuildOutput();
   checkCli();
+  checkCliThreads();
   await checkLibrary();
+  await checkMapWorker();
   console.log("check-build: OK");
 } catch (error) {
   console.error(`check-build: FAILED\n${String(error)}`);

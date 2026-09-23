@@ -51,7 +51,7 @@ class Semaphore {
  * Buffered values are yielded first; once the buffer is drained, a failed
  * run rejects and a completed run reports `done`.
  */
-class Channel<T> {
+export class Channel<T> {
   private values: T[] = [];
   private waiters: {
     resolve: (result: IteratorResult<T>) => void;
@@ -66,11 +66,13 @@ class Channel<T> {
   }
 
   finish(): void {
+    if (this.done) return;
     this.done = true;
     this.settle();
   }
 
   fail(error: unknown): void {
+    if (this.done) return;
     this.failure = { error };
     this.done = true;
     this.settle();

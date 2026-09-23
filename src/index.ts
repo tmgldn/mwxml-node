@@ -20,6 +20,8 @@ export { MalformedXML } from "./errors.js";
 export { Dump } from "./dump.js";
 export { map } from "./map.js";
 export type { DumpProcessor } from "./map.js";
+export { mapWorker } from "./mapWorker.js";
+export type { MapWorkerOptions, WorkerDumpProcessor } from "./mapWorker.js";
 export { Page, normalizeTitle, extractNamespace } from "./model/page.js";
 export { LogItem, LogItemDeleted, LogItemPage } from "./model/logItem.js";
 export { Revision, RevisionDeleted } from "./model/revision.js";
