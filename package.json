@@ -1,0 +1,55 @@
+{
+  "name": "mwxml",
+  "version": "0.1.0",
+  "description": "Utilities for efficiently processing MediaWiki's XML database dumps",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "mediawiki",
+    "xml",
+    "dumps",
+    "parser"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mediawiki-utilities/mwxml-node"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "bin": {
+    "mwxml": "./dist/cli/main.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli/main.js",
+    "test": "vitest run",
+    "check-build": "node scripts/check-build.mjs",
+    "release": "pub-time",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "saxes": "^6.0.0"
+  },
+  "optionalDependencies": {
+    "unbzip2-stream": "^1.0.13"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "pub-time": "^1.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

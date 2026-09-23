@@ -1,1 +1,128 @@
-# mwxml-node
+# mwxml (Node)
+
+A Node.js/TypeScript port of
+[python-mwxml](https://github.com/mediawiki-utilities/python-mwxml): a set of
+utilities for efficiently processing MediaWiki's XML database dumps.
+
+The package is written in TypeScript, published as ESM, and mirrors the Python
+API using JS naming conventions (camelCase fields, PascalCase classes). The
+streaming parser is fully lazy: pages and revisions are parsed on demand as
+you iterate, so arbitrarily large dumps can be processed with constant
+memory.
+
+## Install
+
+```
+npm install mwxml
+```
+
+## Usage
+
+```ts
+import { Dump } from "mwxml";
+
+// Accepts a path (plain, .gz or .bz2 — compression is detected by sniffing
+// the file's magic bytes) or any stream / async iterable of chunks.
+const dump = await Dump.fromFile("example/dump.xml");
+
+for await (const page of dump) {
+  for await (const revision of page) {
+    console.log(revision.id, page.title);
+  }
+}
+```
+
+`Dump` also provides `dump.siteInfo` (`SiteInfo`), `dump.items`,
+`dump.pages` and `dump.logItems`.
+
+### `map()`
+
+Distributes a dump processing function over a set of dump files with
+concurrency, yielding results in input order:
+
+```ts
+import { map } from "mwxml";
+
+async function* pageInfo(dump, path) {
+  for await (const page of dump) {
+    yield { id: page.id, namespace: page.namespace, title: page.title };
+  }
+}
+
+for await (const doc of map(pageInfo, ["dump1.xml", "dump2.xml.gz"], 4)) {
+  console.log(doc);
+}
+```
+
+### CLI
+
+The package ships an `mwxml` binary mirroring the Python utilities:
+
+```
+mwxml dump2revdocs <dump.xml>... [--output=<dir>] [--compress=gz|none] [--verbose]
+mwxml inflate <flat-rev-docs.jsonl>...
+mwxml normalize <rev-docs.jsonl>...
+mwxml validate <rev-docs.jsonl>... --schema=<schema.json>
+```
+
+## API mapping
+
+| Python | This package |
+| --- | --- |
+| `mwxml.Dump.from_file(f)` | `await Dump.fromFile(f)` |
+| `mwxml.Dump.from_page_xml(xml)` | `await Dump.fromPageXml(xml)` |
+| `for page in dump` | `for await (const page of dump)` |
+| `for rev in page` | `for await (const rev of page)` |
+| `dump.site_info`, `dump.pages`, `dump.log_items` | `dump.siteInfo`, `dump.pages`, `dump.logItems` |
+| `revision.parent_id`, `rev.text`, `rev.sha1` | `revision.parentId`, `revision.text`, `revision.sha1` |
+| `revision.timestamp` (mwtypes Timestamp) | `revision.timestamp` (`Timestamp`, use `.equals()` and `<`/`>`) |
+| `mwxml.map(process, paths, threads)` | `map(process, paths, threads)` (async generator) |
+| `revision.to_json()` | `revision.toJSON()` |
+| `next(dump)` | `nextItem(dump)` (exported helper) |
+
+## Behaviour notes
+
+- **Bug compatibility.** Two quirks of the Python library are replicated
+  deliberately and documented here:
+  - `dump.items`, `dump.pages` and `dump.logItems` share a single
+    underlying iterator — consuming any of them consumes the others.
+  - When a `<logitem>` contains a non-empty `<logtitle>` and the dump has no
+    `<namespaces>` block, the page title is read from the `<logitem>`
+    element itself instead of the `<logtitle>` element. Reading it completes
+    the log item early, so any tags that follow (`<type>`, `<action>`,
+    `<params>`) are skipped.
+- **Coercion quirks** are preserved: `User.id` is numeric but `Content.id`
+  is a string, `Content.origin`/`Content.bytes` are numeric, an empty
+  `<text>` tag serialises as `null`, an empty `<username>` tag yields the
+  string `"None"` (Python's `str(None)`), and an empty `<id>` inside a
+  `<contributor>` yields `0`.
+- **JSON keys.** `toJSON()` emits camelCase keys (`parentId`), per JS
+  conventions. The `normalize` and `inflate` CLI subcommands operate on the
+  legacy snake_case revision-document format of the Python ecosystem, as
+  their purpose is normalising those legacy documents.
+- **Serialization.** Like Python's `jsonable`, `toJSON()` drops `null`
+  fields from objects (but keeps `false`, `0` and `[]`) and serialises
+  timestamps as `YYYY-MM-DDTHH:MM:SSZ` strings.
+- **Divergences from Python:**
+  - bzip2 *compression* of CLI output is not supported (bzip2 *reading* is,
+    via the optional `unbzip2-stream` dependency); use `--compress=gz`.
+  - The CLI processes input files sequentially in the order given;
+    `--threads` is accepted for compatibility but does not spawn workers.
+  - Iterating a `Page`'s revisions part-way and then resuming (after the
+    dump has moved on) yields the remaining revisions; in Python the
+    generator is closed by garbage collection and yields nothing.
+  - `Dump` constructed with `null` items yields nothing from
+    `dump.pages`/`dump.logItems`; Python raises a `TypeError` in that case.
+
+## Development
+
+```
+npm install
+npm test      # vitest
+npm run build # tsc -> dist/
+```
+
+The test suite is a 1:1 port of the Python library's suite (plus timestamp
+and compression tests), and the parser's output has been verified
+field-for-field against `python-mwxml` 0.3.8.
+
