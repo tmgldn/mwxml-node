@@ -38,5 +38,4 @@ The port is complete and verified: the test suite is a 1:1 port of the Python su
 
 - Tests must be compatible with both vitest and bun. Notably bun's `.rejects` requires an actual Promise — pass `(async () => { ... })()`, not a function.
 - `expect.unreachable()` works in both runners.
-- Python behavior questions should be settled against `./python-mwxml` (or `pip install mwxml` in a venv), not from memory.
-
+- Python behaviour questions should be settled against `./python-mwxml` (or `pip install mwxml` in a venv), not from memory.
