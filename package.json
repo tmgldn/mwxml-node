@@ -4,6 +4,7 @@
   "description": "Utilities for efficiently processing MediaWiki's XML database dumps",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/mediawiki-utilities/mwxml-node#readme",
   "keywords": [
     "mediawiki",
     "xml",
