@@ -32,7 +32,7 @@ The port is complete and verified: the test suite is a 1:1 port of the Python su
 - `npm run build` — tsc to `dist/` (+ executable bit on the bin)
 - `npm test` (vitest) and `bun test` — **both must stay green**
 - `npm run check-build` — exercises the built bin + library entry against `test/fixtures/dump.xml`
-- `npm run release` — pub-time (checks, semantic version from `v#.#.#` tags, build/test/check-build, publish)
+- `npm publish` — `prepublishOnly` runs `build`; releases are tagged manually as `v#.#.#`
 
 ## Test-writing notes
 

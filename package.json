@@ -37,7 +37,6 @@
     "build": "tsc -p tsconfig.json && chmod +x dist/cli/main.js",
     "test": "vitest run",
     "check-build": "node scripts/check-build.mjs",
-    "release": "pub-time",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
@@ -49,7 +48,6 @@
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
-    "pub-time": "^1.0.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
   }
