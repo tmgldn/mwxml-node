@@ -143,6 +143,27 @@ the input files across that many real worker threads.
   - `Dump` constructed with `null` items yields nothing from
     `dump.pages`/`dump.logItems`; Python raises a `TypeError` in that case.
 
+## Performance
+
+Benchmark: counting the articles (pages) in 8 parts (~3.4 GB compressed
+bzip2) of the `enwiki-20260901-pages-articles-multistream` dump, on a
+16-core machine with a warm page cache. "1 thread" is plain sequential
+iteration; "8 threads" is this package's `mapWorker()` versus
+python-mwxml's `mwxml.map` (which uses multiprocessing under the hood).
+Both implementations counted the same 3,498,127 pages in every run.
+
+| Implementation | 1 thread | 8 threads |
+| --- | --- | --- |
+| node-mwxml | 2.8 MB/s | 22.0 MB/s |
+| python-mwxml 0.3.8 | 4.5 MB/s | 31.7 MB/s |
+
+(Throughput is in compressed MB/s; the uncompressed XML is roughly 5x
+larger.) python-mwxml is faster single-threaded — its C `bz2` module
+out-paces the pure-JavaScript `unbzip2-stream` decoder, which dominates
+this benchmark — but node-mwxml scales slightly better with threads
+(7.8x vs 7.0x), narrowing the gap to ~1.4x at 8 threads. Reading gzip
+or plain XML dumps avoids the bzip2 bottleneck entirely.
+
 ## Development
 
 ```
