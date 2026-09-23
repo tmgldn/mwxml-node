@@ -1,4 +1,4 @@
-# mwxml (Node)
+# node-mwxml
 
 A Node.js/TypeScript port of
 [python-mwxml](https://github.com/mediawiki-utilities/python-mwxml): a set of
@@ -13,13 +13,13 @@ memory.
 ## Install
 
 ```
-npm install mwxml
+npm install node-mwxml
 ```
 
 ## Usage
 
 ```ts
-import { Dump } from "mwxml";
+import { Dump } from "node-mwxml";
 
 // Accepts a path (plain, .gz or .bz2 — compression is detected by sniffing
 // the file's magic bytes) or any stream / async iterable of chunks.
@@ -41,7 +41,7 @@ Distributes a dump processing function over a set of dump files with
 concurrency, yielding results in input order:
 
 ```ts
-import { map } from "mwxml";
+import { map } from "node-mwxml";
 
 async function* pageInfo(dump, path) {
   for await (const page of dump) {
@@ -56,13 +56,13 @@ for await (const doc of map(pageInfo, ["dump1.xml", "dump2.xml.gz"], 4)) {
 
 ### CLI
 
-The package ships an `mwxml` binary mirroring the Python utilities:
+The package ships a `node-mwxml` binary mirroring the Python utilities:
 
 ```
-mwxml dump2revdocs <dump.xml>... [--output=<dir>] [--compress=gz|none] [--verbose]
-mwxml inflate <flat-rev-docs.jsonl>...
-mwxml normalize <rev-docs.jsonl>...
-mwxml validate <rev-docs.jsonl>... --schema=<schema.json>
+node-mwxml dump2revdocs <dump.xml>... [--output=<dir>] [--compress=gz|none] [--verbose]
+node-mwxml inflate <flat-rev-docs.jsonl>...
+node-mwxml normalize <rev-docs.jsonl>...
+node-mwxml validate <rev-docs.jsonl>... --schema=<schema.json>
 ```
 
 ## API mapping

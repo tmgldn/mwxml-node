@@ -1,4 +1,4 @@
-You are working on mwxml: the Node/TypeScript equivalent of the Python MediaWiki XML dump parser.
+You are working on node-mwxml: the Node/TypeScript equivalent of the Python MediaWiki XML dump parser.
 
 TypeScript, ESM, npm-publishable. Same API as the Python library, using TS/JS camelCase/PascalCase conventions.
 
@@ -6,7 +6,7 @@ The original project is https://github.com/mediawiki-utilities/python-mwxml and 
 
 ## Status
 
-The port is complete and verified: the test suite is a 1:1 port of the Python suite, `revision.to_json()` output has been verified field-for-field against `python-mwxml` 0.3.8 (installed from PyPI), and the bug-compat behaviors match it exactly. `mwxml` is free on npm. Do not re-plan from scratch — make changes against the existing implementation.
+The port is complete and verified: the test suite is a 1:1 port of the Python suite, `revision.to_json()` output has been verified field-for-field against `python-mwxml` 0.3.8 (installed from PyPI), and the bug-compat behaviors match it exactly. `node-mwxml` is free on npm. Do not re-plan from scratch — make changes against the existing implementation.
 
 ## Layout
 
@@ -14,7 +14,7 @@ The port is complete and verified: the test suite is a 1:1 port of the Python su
 - `src/dump.ts` — `Dump` (+ `fromFile`/`fromPageXml`); `src/map.ts` — parallel `map()`
 - `src/files.ts` — compression sniffing (gzip via `node:zlib`, bz2 via optional `unbzip2-stream`), `concat`, `writer`
 - `src/model/` — data model classes with their `fromElement` parsers and `toJSON`
-- `src/cli/` — `mwxml` bin: `dump2revdocs`, `inflate`, `normalize`, `validate`
+- `src/cli/` — `node-mwxml` bin: `dump2revdocs`, `inflate`, `normalize`, `validate`
 - `test/` — vitest suite (1:1 Python port + timestamp/compression tests), fixtures in `test/fixtures/`
 - `scripts/check-build.mjs` — validates the built `dist/` output
 

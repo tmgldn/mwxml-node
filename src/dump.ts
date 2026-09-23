@@ -11,7 +11,7 @@ import { reader, concat, type InputStream } from "./files.js";
  * and/or log items.  Usually constructed through `Dump.fromFile()`.
  *
  * ```ts
- * import { Dump } from "mwxml";
+ * import { Dump } from "node-mwxml";
  *
  * const dump = await Dump.fromFile("example/dump.xml");
  *

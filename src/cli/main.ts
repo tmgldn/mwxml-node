@@ -24,7 +24,7 @@ interface Arguments {
 }
 
 const USAGE = `Usage:
-    mwxml <subcommand> [options] [<input-file>...]
+    node-mwxml <subcommand> [options] [<input-file>...]
 
 Subcommands:
     dump2revdocs     Converts MediaWiki XML dumps to page-partitioned sequences

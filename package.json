@@ -1,5 +1,5 @@
 {
-  "name": "mwxml",
+  "name": "node-mwxml",
   "version": "0.1.0",
   "description": "Utilities for efficiently processing MediaWiki's XML database dumps",
   "type": "module",
@@ -28,7 +28,7 @@
     "README.md"
   ],
   "bin": {
-    "mwxml": "./dist/cli/main.js"
+    "node-mwxml": "./dist/cli/main.js"
   },
   "engines": {
     "node": ">=18"

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Validates that the built package works for basic, regular usage: the
- * `mwxml` CLI binary converts a dump fixture to revision documents, and the
+ * `node-mwxml` CLI binary converts a dump fixture to revision documents, and the
  * library entry point parses and iterates the same dump.  Run by
  * `npm run check-build` (before a release, after `build` and `test`).
  */

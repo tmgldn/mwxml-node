@@ -117,7 +117,7 @@ class Channel<T> {
  * raised by a processor surface when its path's results are reached.
  *
  * ```ts
- * import { map } from "mwxml";
+ * import { map } from "node-mwxml";
  *
  * const files = ["examples/dump.xml", "examples/dump2.xml"];
  *
